@@ -29,7 +29,7 @@ class DominicanDomino():
             if (6,6) not in player:
                 continue
             self.current_player = pos
-            self.play_left((6,6))
+            self._play((6,6), 6)
             break
 
     def _play(self, piece, matching_number):
@@ -40,10 +40,8 @@ class DominicanDomino():
         if len(self.table) == 0:
             self.table.append(piece)
             self.matching_number_left, self.matching_number_right = piece
-            self.hands[self.current_player].remove(piece)
-            return
         # find end where it should be
-        if matching_number == self.matching_number_left:
+        elif matching_number == self.matching_number_left:
             self.table.appendleft(piece)
             # double
             if piece[0] != piece[1]:
@@ -57,29 +55,6 @@ class DominicanDomino():
         before = len(self.current_hand)
         self.hands[self.current_player].remove(piece)
         assert before > len(self.current_hand), f'{before=} {len(self.current_hand)=}'
-
-    def _play_left(self, piece):
-        if len(self.table) == 0:
-            self.play(piece, piece[0])
-            print(f'Player who played was {self.current_player} a {piece}')
-            self._set_next_player()
-            return
-        if self.matching_number_left not in piece:
-            raise Exception('Cannot do play')
-        self.play(piece, self.matching_number_left)
-        print(f'Player who played was {self.current_player} a {piece}')
-        self._set_next_player()
-    
-    def _play_right(self, piece):
-        if len(self.table) == 0:
-            self.play(piece, 0)
-            print(f'Player who played was {self.current_player} a {piece}')
-            self._set_next_player()
-            return
-        if self.matching_number_right not in piece:
-            raise Exception('Cannot do play')
-        self.play(piece, self.matching_number_right)
-        print(f'Player who played was {self.current_player} a {piece}')
         self._set_next_player()
 
     def _set_next_player(self):
@@ -96,6 +71,7 @@ class DominicanDomino():
             for tile in self.hands[self.current_player]
             if self.matching_number_left in tile or self.matching_number_right in tile
         ]
+
     @property
     def current_hand(self):
         return tuple(self.hands[self.current_player])
@@ -107,13 +83,14 @@ class DominicanDomino():
         elif self.matching_number_left in tile and self.matching_number_right in tile and self.matching_number_right != self.matching_number_left:
             return 'BOTH_SIDES'
         elif self.matching_number_left in tile:
-            self._play_left(tile)
+            self._play(tile, matching_number=self.matching_number_left)
             return 'OK'
         elif self.matching_number_right in tile:
-            self._play_right(tile)
+            self._play(tile, matching_number=self.matching_number_right)
             return 'OK'
         else:
             return 'INVALID'
+
 
 domino = DominicanDomino()
 domino.start()
