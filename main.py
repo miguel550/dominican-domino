@@ -2,76 +2,138 @@ import collections
 import random
 
 
-table = collections.deque()
-matching_number_left = None
-matching_number_right = None
-pieces = [
-    (i, j)
-    for i in range(7)
-    for j in range(i + 1)
-]
-assert len(pieces) == 28, len(pieces)
+class DominicanDomino():
 
-random_pieces = random.sample(pieces, k=len(pieces))
-chunk_size = 7
-players = [random_pieces[i:i+chunk_size] for i in range(0, len(random_pieces), chunk_size)]
-print(players)
+    def __init__(self):
+        self.table = collections.deque()
+        self.matching_number_left = None
+        self.matching_number_right = None
+        pieces = list({
+            (i, j)
+            for i in range(7)
+            for j in range(i + 1)
+        })
+        assert len(pieces) == 28, len(pieces)
 
-current_player = None
+        random_pieces = random.sample(pieces, k=len(pieces))
+        chunk_size = 7
+        self.hands = [random_pieces[i:i+chunk_size] for i in range(0, len(random_pieces), chunk_size)]
 
-def play(piece, matching_number):
-    if matching_number not in piece:
-        raise Exception('Wrong matching number')
-    if piece in table:
-        raise Exception('Already played')
-    if len(table) == 0:
-        table.append(piece)
-        matching_number_left, matching_number_right = piece
-        return
-    # find end where it should be
-    if matching_number == matching_number_left:
-        table.appendleft(piece)
-        matching_number_left = next(number for number in piece if number != matching_number)
-    elif matching_number == matching_number_right:
-        table.append(piece)
-        matching_number_right = next(number for number in piece if number != matching_number)
-    else:
-        raise Exception(f'Bad move ${piece} does not match in any end')
+        self.current_player = None
 
-def play_left(piece):
-    if len(table) == 0:
-        play(piece, piece[0])
-        print(f'Player who played was {current_player} a {piece}')
-        set_next_player()
-        return
-    if matching_number_left not in piece:
-        raise Exception('Cannot do play')
-    play(piece, matching_number_left)
-    print(f'Player who played was {current_player} a {piece}')
-    set_next_player()
+    def start(self):
+        if len(self.table) != 0:
+            return
+        # find who has 6/6 and do the play
+        for pos, player in enumerate(self.hands):
+            if (6,6) not in player:
+                continue
+            self.current_player = pos
+            self.play_left((6,6))
+            break
+
+    def _play(self, piece, matching_number):
+        if matching_number not in piece:
+            raise Exception('Wrong matching number')
+        if piece in self.table:
+            raise Exception('Already played')
+        if len(self.table) == 0:
+            self.table.append(piece)
+            self.matching_number_left, self.matching_number_right = piece
+            self.hands[self.current_player].remove(piece)
+            return
+        # find end where it should be
+        if matching_number == self.matching_number_left:
+            self.table.appendleft(piece)
+            # double
+            if piece[0] != piece[1]:
+                self.matching_number_left = next(number for number in piece if number != matching_number)
+        elif matching_number == self.matching_number_right:
+            self.table.append(piece)
+            if piece[0] != piece[1]:
+                self.matching_number_right = next(number for number in piece if number != matching_number)
+        else:
+            raise Exception(f'Bad move {piece} does not match in any end')
+        before = len(self.current_hand)
+        self.hands[self.current_player].remove(piece)
+        assert before > len(self.current_hand), f'{before=} {len(self.current_hand)=}'
+
+    def _play_left(self, piece):
+        if len(self.table) == 0:
+            self.play(piece, piece[0])
+            print(f'Player who played was {self.current_player} a {piece}')
+            self._set_next_player()
+            return
+        if self.matching_number_left not in piece:
+            raise Exception('Cannot do play')
+        self.play(piece, self.matching_number_left)
+        print(f'Player who played was {self.current_player} a {piece}')
+        self._set_next_player()
     
-def play_right(piece):
-    if len(table) == 0:
-        play(piece, 0)
-        print(f'Player who played was {current_player} a {piece}')
-        set_next_player()
-        return
-    if matching_number_right not in piece:
-        raise Exception('Cannot do play')
-    play(piece, matching_number_right)
-    print(f'Player who played was {current_player} a {piece}')
-    set_next_player()
+    def _play_right(self, piece):
+        if len(self.table) == 0:
+            self.play(piece, 0)
+            print(f'Player who played was {self.current_player} a {piece}')
+            self._set_next_player()
+            return
+        if self.matching_number_right not in piece:
+            raise Exception('Cannot do play')
+        self.play(piece, self.matching_number_right)
+        print(f'Player who played was {self.current_player} a {piece}')
+        self._set_next_player()
 
-def set_next_player():
-    global current_player
-    current_player += 1
-    current_player %= 4
+    def _set_next_player(self):
+        self.current_player += 1
+        self.current_player %= 4
 
-if len(table) == 0:
-    # find who has 6/6 and do the play
-    for pos, player in enumerate(players):
-        if (6,6) not in player:
-            continue
-        current_player = pos
-        play_left((6,6))
-        break
+    def get_table(self):
+        return tuple(self.table)
+    
+    @property
+    def allowed_tiles_of_current_player(self):
+        return [
+            tile
+            for tile in self.hands[self.current_player]
+            if self.matching_number_left in tile or self.matching_number_right in tile
+        ]
+    @property
+    def current_hand(self):
+        return tuple(self.hands[self.current_player])
+
+    def play_tile(self, tile, matching_number=None):
+        if matching_number is not None:
+            self._play(tile, matching_number=matching_number)
+            return 'OK'
+        elif self.matching_number_left in tile and self.matching_number_right in tile and self.matching_number_right != self.matching_number_left:
+            return 'BOTH_SIDES'
+        elif self.matching_number_left in tile:
+            self._play_left(tile)
+            return 'OK'
+        elif self.matching_number_right in tile:
+            self._play_right(tile)
+            return 'OK'
+        else:
+            return 'INVALID'
+
+domino = DominicanDomino()
+domino.start()
+while True:
+    print('Table: ')
+    print(domino.get_table())
+    print()
+    print(f'Player {domino.current_player} hand')
+    if not domino.allowed_tiles_of_current_player:
+        print('User doesnt have tiles! passing to next player')
+        domino._set_next_player()
+        continue
+    current_hand = domino.current_hand
+    print(current_hand)
+    option = int(input('Choose: '))
+    tile = current_hand[option]
+    response = domino.play_tile(tile)
+    if response == 'BOTH_SIDES':
+        matching_number = int(input(f'Choose side {tile}: '))
+        domino.play_tile(tile, matching_number=matching_number)
+    elif response == 'INVALID':
+        print(f'Tile {tile} is not valid please choose a valid tile')
+        continue
